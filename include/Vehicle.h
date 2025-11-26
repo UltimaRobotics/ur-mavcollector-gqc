@@ -7,9 +7,14 @@
 #include "FactGroup.h"
 #include "MAVLinkUdpConnection.h"
 
+// Forward declarations for MAVLink types
+struct __mavlink_autopilot_version_t;
+struct __mavlink_message_t;
+
 // Forward declarations
 class Vehicle;
 class ParameterManager;
+class BoardIdentifier;
 
 /// Main Vehicle class that manages all vehicle data collection.
 /// This is a Qt-free port of QGroundControl's Vehicle class.
@@ -81,6 +86,27 @@ public:
 
     /// Get system status as string
     std::string systemStatusString() const;
+
+    /// Get autopilot version information
+    uint64_t capabilities() const { return _capabilities; }
+    uint64_t uid() const { return _uid; }
+    uint32_t flightSwVersion() const { return _flightSwVersion; }
+    uint32_t middlewareSwVersion() const { return _middlewareSwVersion; }
+    uint32_t osSwVersion() const { return _osSwVersion; }
+    uint32_t boardVersion() const { return _boardVersion; }
+    uint16_t vendorId() const { return _vendorId; }
+    uint16_t productId() const { return _productId; }
+    const uint8_t* flightCustomVersion() const { return _flightCustomVersion; }
+    std::string flightCustomVersionString() const;
+    std::string flightSwVersionString() const;
+    std::string middlewareSwVersionString() const;
+    std::string osSwVersionString() const;
+    std::string capabilitiesString() const;
+    
+    /// Board identification
+    std::string boardName() const;
+    std::string boardClass() const;
+    std::string boardIdentification() const;
 
     // Fact accessors for main vehicle facts
     std::shared_ptr<Fact> roll() { return getFact("roll"); }
@@ -162,6 +188,8 @@ private:
     void _handleHeartbeat(const mavlink_message_t &message);
     void _handleStatustext(const mavlink_message_t &message);
     void _handleCommandAck(const mavlink_message_t &message);
+    void _handleAutopilotVersion(const mavlink_message_t &message);
+    void _requestAutopilotVersion();
     void _notifyVehicleChanged();
 
     // Vehicle identification
@@ -173,6 +201,17 @@ private:
     uint32_t _customMode = 0;
     uint8_t _systemStatus = 0;
     uint8_t _mavlinkVersion = 0;
+
+    // Autopilot version information
+    uint64_t _capabilities = 0;
+    uint64_t _uid = 0;
+    uint32_t _flightSwVersion = 0;
+    uint32_t _middlewareSwVersion = 0;
+    uint32_t _osSwVersion = 0;
+    uint32_t _boardVersion = 0;
+    uint16_t _vendorId = 0;
+    uint16_t _productId = 0;
+    uint8_t _flightCustomVersion[8] = {0};
 
     // Communication
     MAVLinkUdpConnection* _connection = nullptr;

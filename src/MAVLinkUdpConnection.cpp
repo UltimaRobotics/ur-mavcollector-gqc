@@ -20,6 +20,14 @@ MAVLinkUdpConnection::MAVLinkUdpConnection()
 {
     // Initialize MAVLink status
     memset(_mavlinkStatus, 0, sizeof(_mavlinkStatus));
+    
+    // Initialize connection health monitoring with configurable defaults
+    _lastMessageTime.store(std::chrono::steady_clock::now());
+    _restartCount.store(0);
+    _restartInProgress.store(false);
+    
+    // Note: Default values are now set by the caller (main.cpp)
+    // This ensures no hardcoded connection parameters in the binary
 }
 
 MAVLinkUdpConnection::~MAVLinkUdpConnection()
@@ -89,6 +97,11 @@ bool MAVLinkUdpConnection::connect(const std::string &targetAddress, uint16_t ta
         }
     });
     
+    // Start health check thread if enabled
+    if (_healthCheckEnabled) {
+        _healthCheckThread = std::thread(&MAVLinkUdpConnection::_healthCheckThreadFunc, this);
+    }
+    
     if (_connectionChangedCallback) {
         _connectionChangedCallback(true);
     }
@@ -116,6 +129,10 @@ void MAVLinkUdpConnection::disconnect()
     
     if (_heartbeatThread.joinable()) {
         _heartbeatThread.join();
+    }
+    
+    if (_healthCheckThread.joinable()) {
+        _healthCheckThread.join();
     }
     
     // Close socket
@@ -234,6 +251,9 @@ bool MAVLinkUdpConnection::_parseMavlinkData(const uint8_t *data, size_t length)
         if (mavlink_parse_char(MAVLINK_COMM_0, data[i], &message, &_mavlinkStatus[MAVLINK_COMM_0]) == MAVLINK_FRAMING_OK) {
             parsedMessage = true;
             
+            // Update last message time for health monitoring
+            _updateLastMessageTime();
+            
             // Update message loss detection
             _updateMessageLossStats(message);
             
@@ -316,4 +336,120 @@ void MAVLinkUdpConnection::_sendHeartbeatFunc()
                                MAV_STATE_ACTIVE);
     
     sendMessage(message);
+}
+
+// Connection health monitoring methods
+bool MAVLinkUdpConnection::isConnectionHealthy() const
+{
+    if (!_connected || !_healthCheckEnabled) {
+        return _connected;
+    }
+    
+    auto now = std::chrono::steady_clock::now();
+    auto lastMessage = _lastMessageTime.load();
+    auto timeSinceLastMessage = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastMessage).count();
+    
+    return timeSinceLastMessage < static_cast<int64_t>(_connectionTimeoutMs.load());
+}
+
+uint32_t MAVLinkUdpConnection::getTimeSinceLastMessage() const
+{
+    auto now = std::chrono::steady_clock::now();
+    auto lastMessage = _lastMessageTime.load();
+    return static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(now - lastMessage).count());
+}
+
+void MAVLinkUdpConnection::_updateLastMessageTime()
+{
+    _lastMessageTime.store(std::chrono::steady_clock::now());
+}
+
+void MAVLinkUdpConnection::_healthCheckThreadFunc()
+{
+    std::cout << "[HEALTH] Connection health monitoring started" << std::endl;
+    std::cout << "[HEALTH] Timeout: " << _connectionTimeoutMs.load() << "ms, Auto-restart: " 
+              << (_autoRestartEnabled.load() ? "enabled" : "disabled") << std::endl;
+    
+    while (_running && _healthCheckEnabled) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every second
+        
+        if (!_connected || _restartInProgress.load()) {
+            continue;
+        }
+        
+        auto timeSinceLastMessage = getTimeSinceLastMessage();
+        
+        if (timeSinceLastMessage > _connectionTimeoutMs.load()) {
+            std::cout << "[HEALTH] Connection unhealthy - no data for " << timeSinceLastMessage 
+                      << "ms (timeout: " << _connectionTimeoutMs.load() << "ms)" << std::endl;
+            
+            if (_autoRestartEnabled.load()) {
+                std::cout << "[HEALTH] Initiating connection restart..." << std::endl;
+                _restartConnection();
+            }
+        }
+    }
+    
+    std::cout << "[HEALTH] Connection health monitoring stopped" << std::endl;
+}
+
+void MAVLinkUdpConnection::_restartConnection()
+{
+    if (_restartInProgress.exchange(true)) {
+        return; // Restart already in progress
+    }
+    
+    std::string targetAddress = _targetAddress;
+    uint16_t targetPort = _targetPort;
+    uint16_t localPort = _localPort;
+    
+    // Disconnect current connection
+    std::cout << "[RESTART] Disconnecting current connection..." << std::endl;
+    {
+        std::lock_guard<std::mutex> lock(_socketMutex);
+        _running = false;
+        _sendHeartbeatFlag = false;
+        _connected = false;
+    }
+    
+    // Wait for threads to finish
+    if (_receiveThread.joinable()) {
+        _receiveThread.join();
+    }
+    if (_heartbeatThread.joinable()) {
+        _heartbeatThread.join();
+    }
+    if (_healthCheckThread.joinable()) {
+        _healthCheckThread.join();
+    }
+    
+    // Close socket
+    if (_socketFd >= 0) {
+        close(_socketFd);
+        _socketFd = -1;
+    }
+    
+    // Notify about connection loss
+    if (_connectionChangedCallback) {
+        _connectionChangedCallback(false);
+    }
+    
+    // Wait before reconnecting
+    std::cout << "[RESTART] Waiting " << _autoRestartDelayMs.load() 
+              << "ms before reconnecting..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(_autoRestartDelayMs.load()));
+    
+    // Reconnect
+    std::cout << "[RESTART] Reconnecting to " << targetAddress << ":" << targetPort 
+              << " (local port: " << localPort << ")..." << std::endl;
+    
+    if (connect(targetAddress, targetPort, localPort)) {
+        _restartCount++;
+        std::cout << "[RESTART] Connection restarted successfully (restart #" 
+                  << _restartCount.load() << ")" << std::endl;
+    } else {
+        std::cout << "[RESTART] Failed to restart connection" << std::endl;
+    }
+    
+    _restartInProgress.store(false);
 }

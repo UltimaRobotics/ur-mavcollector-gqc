@@ -35,6 +35,8 @@ set(SOURCES
     src/VehicleTemperatureFactGroup.cpp
     src/VehicleEstimatorStatusFactGroup.cpp
     src/VehicleWindFactGroup.cpp
+    src/BoardIdentifier.cpp
+    src/JsonConfig.cpp
 )
 
 # Header files
@@ -55,6 +57,8 @@ set(HEADERS
     include/VehicleTemperatureFactGroup.h
     include/VehicleEstimatorStatusFactGroup.h
     include/VehicleWindFactGroup.h
+    include/BoardIdentifier.h
+    include/JsonConfig.h
 )
 
 # Create executable

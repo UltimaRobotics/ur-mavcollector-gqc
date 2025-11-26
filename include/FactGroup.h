@@ -13,7 +13,7 @@
 #include "Fact.h"
 
 // MAVLink headers for mavlink_message_t
-#include <mavlink/v1.0/common/mavlink.h>
+#include "../thirdparty/c_library_v1/common/mavlink.h"
 
 // Forward declarations
 class Vehicle;

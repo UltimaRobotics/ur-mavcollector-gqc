@@ -8,10 +8,14 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <variant>
+#include <cstdlib>  // For std::getenv
 
+#include "JsonConfig.h"
 #include "MAVLinkUdpConnection.h"
 #include "Vehicle.h"
 #include "ParameterManager.h"
+#include "FactMetaData.h"
 
 // Global variables for signal handling
 std::shared_ptr<MAVLinkUdpConnection> g_connection;
@@ -116,19 +120,102 @@ void logTelemetryData(Vehicle* vehicle)
     // Battery data
     auto batteryGroup = vehicle->batteryFactGroup();
     if (batteryGroup) {
+        // System-level battery information
+        auto mavlinkVersion = batteryGroup->getFact("mavlinkVersion");
+        auto batteryCount = batteryGroup->getFact("batteryCount");
+        auto batterySystemType = batteryGroup->getFact("batterySystemType");
+        
+        if (mavlinkVersion) {
+            auto versionVal = safeGetVariant<uint8_t>(mavlinkVersion->cookedValue());
+            std::string versionStr = (versionVal == 1) ? "v1.0" : 
+                                    (versionVal == 2) ? "v2.0" : "Unknown";
+            oss << "BatteryMAVLinkVersion: " << versionStr << std::endl;
+        }
+        if (batteryCount) {
+            auto countVal = safeGetVariant<uint8_t>(batteryCount->cookedValue());
+            std::string countStr = (countVal == 255) ? "None" : 
+                                  (countVal == 1) ? "1 Battery" : 
+                                  (countVal == 2) ? "2 Batteries" : 
+                                  std::to_string(countVal) + " Batteries";
+            oss << "BatteryCount: " << countStr << std::endl;
+        }
+        if (batterySystemType) {
+            auto typeVal = safeGetVariant<uint8_t>(batterySystemType->cookedValue());
+            std::string typeStr = (typeVal == 0) ? "No Battery" : 
+                                 (typeVal == 1) ? "Basic System" : 
+                                 (typeVal == 2) ? "Enhanced System" : 
+                                 (typeVal == 3) ? "Dual Battery System" : 
+                                 (typeVal == 4) ? "Multi-Battery System" : "Unknown";
+            oss << "BatterySystemType: " << typeStr << std::endl;
+        }
+        
+        // Individual battery metrics
         auto voltage = batteryGroup->getFact("voltage");
         auto current = batteryGroup->getFact("current");
         auto percent = batteryGroup->getFact("percent");
         auto consumed = batteryGroup->getFact("consumed");
         auto remaining = batteryGroup->getFact("remaining");
         auto temperature = batteryGroup->getFact("temperature");
+        auto id = batteryGroup->getFact("id");
+        auto function = batteryGroup->getFact("function");
+        auto type = batteryGroup->getFact("type");
+        auto timeRemaining = batteryGroup->getFact("timeRemaining");
+        auto chargeState = batteryGroup->getFact("chargeState");
+        auto mode = batteryGroup->getFact("mode");
+        auto faultBitmask = batteryGroup->getFact("faultBitmask");
+        auto cellCount = batteryGroup->getFact("cellCount");
         
-        if (voltage) oss << "BatteryVoltage: " << safeGetVariant<float>(voltage->cookedValue()) << std::endl;
-        if (current) oss << "BatteryCurrent: " << safeGetVariant<float>(current->cookedValue()) << std::endl;
-        if (percent) oss << "BatteryPercent: " << static_cast<int>(safeGetVariant<uint8_t>(percent->cookedValue())) << std::endl;
-        if (consumed) oss << "BatteryConsumed: " << safeGetVariant<float>(consumed->cookedValue()) << std::endl;
-        if (remaining) oss << "BatteryRemaining: " << safeGetVariant<float>(remaining->cookedValue()) << std::endl;
-        if (temperature) oss << "BatteryTemperature: " << safeGetVariant<float>(temperature->cookedValue()) << std::endl;
+        if (voltage) oss << "BatteryVoltage: " << safeGetVariant<float>(voltage->cookedValue()) << " V" << std::endl;
+        if (current) oss << "BatteryCurrent: " << safeGetVariant<float>(current->cookedValue()) << " A" << std::endl;
+        if (percent) {
+            auto percentVal = safeGetVariant<uint8_t>(percent->cookedValue());
+            if (percentVal != 255) {
+                oss << "BatteryPercent: " << static_cast<int>(percentVal) << "%" << std::endl;
+            } else {
+                oss << "BatteryPercent: N/A" << std::endl;
+            }
+        }
+        if (consumed) oss << "BatteryConsumed: " << safeGetVariant<float>(consumed->cookedValue()) << " Ah" << std::endl;
+        if (remaining) oss << "BatteryRemaining: " << safeGetVariant<float>(remaining->cookedValue()) << " Ah" << std::endl;
+        if (temperature) oss << "BatteryTemperature: " << safeGetVariant<float>(temperature->cookedValue()) << " °C" << std::endl;
+        if (id) {
+            auto idVal = safeGetVariant<uint8_t>(id->cookedValue());
+            if (idVal != 255) {
+                oss << "BatteryID: " << static_cast<int>(idVal) << std::endl;
+            }
+        }
+        if (function) oss << "BatteryFunction: " << static_cast<int>(safeGetVariant<uint8_t>(function->cookedValue())) << std::endl;
+        if (type) oss << "BatteryType: " << static_cast<int>(safeGetVariant<uint8_t>(type->cookedValue())) << std::endl;
+        if (timeRemaining) {
+            auto timeVal = safeGetVariant<uint32_t>(timeRemaining->cookedValue());
+            if (timeVal != UINT32_MAX) {
+                oss << "BatteryTimeRemaining: " << timeVal << " s" << std::endl;
+            }
+        }
+        if (chargeState) {
+            auto chargeVal = safeGetVariant<uint8_t>(chargeState->cookedValue());
+            if (chargeVal != UINT8_MAX) {
+                oss << "BatteryChargeState: " << static_cast<int>(chargeVal) << std::endl;
+            }
+        }
+        if (mode) {
+            auto modeVal = safeGetVariant<uint8_t>(mode->cookedValue());
+            if (modeVal != UINT8_MAX) {
+                oss << "BatteryMode: " << static_cast<int>(modeVal) << std::endl;
+            }
+        }
+        if (faultBitmask) {
+            auto faultVal = safeGetVariant<uint32_t>(faultBitmask->cookedValue());
+            if (faultVal != UINT32_MAX) {
+                oss << "BatteryFaultBitmask: 0x" << std::hex << faultVal << std::dec << std::endl;
+            }
+        }
+        if (cellCount) {
+            auto cellVal = safeGetVariant<uint16_t>(cellCount->cookedValue());
+            if (cellVal > 0) {
+                oss << "BatteryCellCount: " << cellVal << std::endl;
+            }
+        }
     }
 
     // System Status data
@@ -291,6 +378,21 @@ void printVehicleInfo(Vehicle* vehicle)
     oss << "Armed: " << (vehicle->armed() ? "Yes" : "No") << std::endl;
     oss << "Flying: " << (vehicle->flying() ? "Yes" : "No") << std::endl;
     
+    // Autopilot version information
+    oss << "\n=== Autopilot Version Information ===" << std::endl;
+    oss << "Board Identification: " << vehicle->boardIdentification() << std::endl;
+    oss << "Board Class: " << vehicle->boardClass() << std::endl;
+    oss << "Board Name: " << vehicle->boardName() << std::endl;
+    oss << "Vendor ID: " << vehicle->vendorId() << std::endl;
+    oss << "Product ID: " << vehicle->productId() << std::endl;
+    oss << "UID (Serial): " << vehicle->uid() << std::endl;
+    oss << "Board Version: " << vehicle->boardVersion() << std::endl;
+    oss << "Flight SW Version: " << vehicle->flightSwVersionString() << std::endl;
+    oss << "Middleware SW Version: " << vehicle->middlewareSwVersionString() << std::endl;
+    oss << "OS SW Version: " << vehicle->osSwVersionString() << std::endl;
+    oss << "Flight Custom Version (Git): " << vehicle->flightCustomVersionString() << std::endl;
+    oss << "Capabilities: " << vehicle->capabilitiesString() << std::endl;
+    
     logMessage(oss.str());
 }
 
@@ -307,53 +409,85 @@ void printConnectionStats(const MAVLinkUdpConnection* connection)
     oss << "PacketsLost: " << connection->getPacketsLost() << std::endl;
     oss << "MAVLinkVersion: " << connection->getDetectedMavlinkVersion() << std::endl;
     
+    // Health monitoring statistics
+    oss << "\n=== Health Monitoring ===" << std::endl;
+    oss << "HealthCheckEnabled: " << (connection->isHealthCheckEnabled() ? "Yes" : "No") << std::endl;
+    oss << "ConnectionHealthy: " << (connection->isConnectionHealthy() ? "Yes" : "No") << std::endl;
+    oss << "TimeSinceLastMessage: " << connection->getTimeSinceLastMessage() << "ms" << std::endl;
+    oss << "ConnectionTimeout: " << connection->getConnectionTimeout() << "ms" << std::endl;
+    oss << "AutoRestartEnabled: " << (connection->isAutoRestartEnabled() ? "Yes" : "No") << std::endl;
+    oss << "AutoRestartDelay: " << connection->getAutoRestartDelay() << "ms" << std::endl;
+    oss << "RestartCount: " << connection->getRestartCount() << std::endl;
+    
     logMessage(oss.str());
 }
 
 int main(int argc, char* argv[])
 {
-    std::string targetAddress = "127.0.0.1";
-    int targetPort = 14550;
-    int localPort = 44003;
-    bool verbose = false;
-    bool showStats = false;
-    bool checkVersion = true;
-    bool enableLogging = false;
-    std::string logFileName = "mavlink_data.log";
+    std::string configFilePath = "config.json";
     
     // Parse command line arguments
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
-        if (arg == "-a" && i + 1 < argc) {
-            targetAddress = argv[++i];
-        } else if (arg == "-p" && i + 1 < argc) {
-            targetPort = std::atoi(argv[++i]);
-        } else if (arg == "-l" && i + 1 < argc) {
-            localPort = std::atoi(argv[++i]);
-        } else if (arg == "-v") {
-            verbose = true;
-        } else if (arg == "-s") {
-            showStats = true;
-        } else if (arg == "--log" && i + 1 < argc) {
-            enableLogging = true;
-            logFileName = argv[++i];
-        } else if (arg == "--no-version-check") {
-            checkVersion = false;
+        if (arg == "-pkg_config" && i + 1 < argc) {
+            configFilePath = argv[++i];
         } else if (arg == "-h" || arg == "--help") {
             std::cout << "MAVLink Data Collector - Enhanced QGroundControl Parameter Manager\n";
-            std::cout << "Usage: " << argv[0] << " [options]\n";
+            std::cout << "Usage: " << argv[0] << " -pkg_config <config_file>\n";
             std::cout << "Options:\n";
-            std::cout << "  -a <address>    Target IP address (default: 127.0.0.1)\n";
-            std::cout << "  -p <port>       Target port (default: 14550)\n";
-            std::cout << "  -l <port>       Local port to listen on (default: 44003)\n";
-            std::cout << "  -v              Verbose output\n";
-            std::cout << "  -s              Show connection statistics\n";
-            std::cout << "  --log <file>    Log all data to file (default: mavlink_data.log)\n";
-            std::cout << "  --no-version-check  Skip version check at startup\n";
-            std::cout << "  -h, --help      Show this help message\n";
+            std::cout << "  -pkg_config <file>    Path to JSON configuration file (default: config.json)\n";
+            std::cout << "  -h, --help           Show this help message\n";
+            std::cout << "\nJSON Configuration Format:\n";
+            std::cout << "  {\n";
+            std::cout << "    \"target_address\": \"127.0.0.1\",\n";
+            std::cout << "    \"target_port\": 14550,\n";
+            std::cout << "    \"local_port\": 44003,\n";
+            std::cout << "    \"system_id\": 255,\n";
+            std::cout << "    \"component_id\": 158,\n";
+            std::cout << "    \"health_check_enabled\": true,\n";
+            std::cout << "    \"auto_restart_enabled\": true,\n";
+            std::cout << "    \"connection_timeout_ms\": 5000,\n";
+            std::cout << "    \"restart_delay_ms\": 1000,\n";
+            std::cout << "    \"verbose_logging\": false,\n";
+            std::cout << "    \"show_statistics\": true,\n";
+            std::cout << "    \"enable_data_logging\": false,\n";
+            std::cout << "    \"log_file_path\": \"mavlink_data.log\",\n";
+            std::cout << "    \"version_check_enabled\": true,\n";
+            std::cout << "    \"auto_version_detection\": true\n";
+            std::cout << "  }\n";
             return 0;
         }
     }
+    
+    // Load JSON configuration
+    JsonConfig config;
+    if (!config.loadFromFile(configFilePath)) {
+        std::cerr << "Failed to load configuration from: " << configFilePath << std::endl;
+        return 1;
+    }
+    
+    // Extract configuration values
+    std::string targetAddress = config.getString("target_address", "127.0.0.1");
+    int targetPort = config.getInt("target_port", 14550);
+    int localPort = config.getInt("local_port", 44003);
+    uint8_t systemId = static_cast<uint8_t>(config.getInt("system_id", 255));
+    uint8_t componentId = static_cast<uint8_t>(config.getInt("component_id", 158));
+    
+    bool verbose = config.getBool("verbose_logging", false);
+    bool showStats = config.getBool("show_statistics", false);
+    bool checkVersion = config.getBool("version_check_enabled", true);
+    bool enableLogging = config.getBool("enable_data_logging", false);
+    std::string logFileName = config.getString("log_file_path", "mavlink_data.log");
+    
+    // Health monitoring options
+    bool enableHealthCheck = config.getBool("health_check_enabled", true);
+    bool enableAutoRestart = config.getBool("auto_restart_enabled", true);
+    uint32_t connectionTimeout = static_cast<uint32_t>(config.getInt("connection_timeout_ms", 5000));
+    uint32_t restartDelay = static_cast<uint32_t>(config.getInt("restart_delay_ms", 1000));
+    
+    // Print loaded configuration
+    std::cout << "=== Configuration Loaded from: " << configFilePath << " ===" << std::endl;
+    config.printConfig();
 
     // Initialize data logging if enabled
     if (enableLogging) {
@@ -362,8 +496,11 @@ int main(int argc, char* argv[])
             auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
             g_dataLog << "\n=== MAVLink Data Collection Started at " << timestamp << " ===" << std::endl;
+            g_dataLog << "Config File: " << configFilePath << std::endl;
             g_dataLog << "Target: " << targetAddress << ":" << targetPort << std::endl;
             g_dataLog << "Local Port: " << localPort << std::endl;
+            g_dataLog << "System ID: " << static_cast<int>(systemId) << std::endl;
+            g_dataLog << "Component ID: " << static_cast<int>(componentId) << std::endl;
             g_dataLog << "Build: " << __DATE__ << " " << __TIME__ << std::endl;
             g_dataLog << "=============================" << std::endl;
             g_dataLog.flush();
@@ -381,6 +518,7 @@ int main(int argc, char* argv[])
         oss << "Build date: " << __DATE__ << " " << __TIME__ << std::endl;
         oss << "MAVLink v2.0 support enabled" << std::endl;
         if (enableLogging) oss << "Data logging enabled: " << logFileName << std::endl;
+        oss << "Configuration: " << configFilePath << std::endl;
         oss << "=============================" << std::endl;
         logMessage(oss.str());
     }
@@ -391,11 +529,41 @@ int main(int argc, char* argv[])
 
     logMessage("MAVLink Data Collector - Enhanced");
     logMessage("=======================");
-    logMessage("Connecting to " + targetAddress + ":" + std::to_string(targetPort) + 
-               " (local port: " + std::to_string(localPort) + ")");
+    
+    // Show configuration summary
+    std::ostringstream configInfo;
+    configInfo << "Configuration Summary:" << std::endl;
+    configInfo << "Target: " << targetAddress << ":" << targetPort << std::endl;
+    configInfo << "Local Port: " << localPort << std::endl;
+    configInfo << "System ID: " << static_cast<int>(systemId) << std::endl;
+    configInfo << "Component ID: " << static_cast<int>(componentId) << std::endl;
+    logMessage(configInfo.str());
 
     // Create connection
     g_connection = std::make_shared<MAVLinkUdpConnection>();
+    
+    // Configure system ID and component ID from JSON configuration
+    g_connection->setSystemId(systemId);
+    g_connection->setComponentId(componentId);
+    
+    // Configure connection health monitoring
+    g_connection->enableConnectionHealthCheck(enableHealthCheck);
+    g_connection->setAutoRestartEnabled(enableAutoRestart);
+    g_connection->setConnectionTimeout(connectionTimeout);
+    g_connection->setAutoRestartDelay(restartDelay);
+    
+    if (enableHealthCheck) {
+        logMessage("Connection health monitoring enabled:");
+        std::ostringstream healthConfig;
+        healthConfig << "- Timeout: " << connectionTimeout << "ms" << std::endl;
+        healthConfig << "- Auto-restart: " << (enableAutoRestart ? "enabled" : "disabled") << std::endl;
+        if (enableAutoRestart) {
+            healthConfig << "- Restart delay: " << restartDelay << "ms" << std::endl;
+        }
+        logMessage(healthConfig.str());
+    } else {
+        logMessage("Connection health monitoring disabled");
+    }
     
     // Set up callbacks
     g_connection->setConnectionChangedCallback([](bool connected) {
@@ -435,8 +603,12 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    // Create vehicle
+    // Create vehicle with system ID from configuration
     g_vehicle = std::make_shared<Vehicle>(g_connection.get());
+    
+    // Configure system ID and component ID from JSON configuration
+    g_vehicle->setSystemId(systemId);
+    g_vehicle->setComponentId(componentId);
     
     // Set up parameter manager callbacks
     auto paramManager = g_vehicle->parameterManager();

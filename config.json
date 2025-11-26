@@ -1,0 +1,21 @@
+{
+    "target_address": "127.0.0.1",
+    "target_port": 14550,
+    "local_port": 44003,
+    
+    "system_id": 255,
+    "component_id": 158,
+    
+    "health_check_enabled": true,
+    "auto_restart_enabled": true,
+    "connection_timeout_ms": 5000,
+    "restart_delay_ms": 1000,
+    
+    "verbose_logging": false,
+    "show_statistics": true,
+    "enable_data_logging": false,
+    "log_file_path": "mavlink_data.log",
+    
+    "version_check_enabled": true,
+    "auto_version_detection": true
+}

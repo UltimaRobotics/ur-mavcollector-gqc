@@ -8,19 +8,20 @@
 #include <mutex>
 #include <set>
 #include <map>
+#include <chrono>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
 // MAVLink headers
-#include <mavlink/v1.0/common/mavlink.h>
-#include <mavlink/v2.0/common/mavlink.h>
+#include "../thirdparty/c_library_v1/common/mavlink.h"
 
 // Forward declarations
 class Vehicle;
 
 /// MAVLink UDP connection handler for both v1 and v2 protocols.
 /// This is a Qt-free implementation of QGroundControl's link system.
+/// Enhanced with connection health monitoring and auto-restart functionality.
 class MAVLinkUdpConnection
 {
 public:
@@ -62,6 +63,14 @@ public:
     /// Set vehicle for message handling
     void setVehicle(Vehicle *vehicle) { _vehicle = vehicle; }
 
+    /// Set system ID for this connection
+    void setSystemId(uint8_t systemId) { _systemId = systemId; }
+    uint8_t getSystemId() const { return _systemId; }
+
+    /// Set component ID for this connection
+    void setComponentId(uint8_t componentId) { _componentId = componentId; }
+    uint8_t getComponentId() const { return _componentId; }
+
     // Callback support for Qt-free implementation
     typedef std::function<void(const mavlink_message_t&)> MessageReceivedCallback;
     void setMessageReceivedCallback(MessageReceivedCallback callback) { _messageReceivedCallback = callback; }
@@ -86,6 +95,24 @@ public:
     /// Get detected MAVLink version
     int getDetectedMavlinkVersion() const { return _detectedMavlinkVersion; }
 
+    /// Connection health monitoring and auto-restart
+    void enableConnectionHealthCheck(bool enabled) { _healthCheckEnabled = enabled; }
+    bool isHealthCheckEnabled() const { return _healthCheckEnabled; }
+    
+    void setConnectionTimeout(uint32_t timeoutMs) { _connectionTimeoutMs = timeoutMs; }
+    uint32_t getConnectionTimeout() const { return _connectionTimeoutMs; }
+    
+    void setAutoRestartEnabled(bool enabled) { _autoRestartEnabled = enabled; }
+    bool isAutoRestartEnabled() const { return _autoRestartEnabled; }
+    
+    void setAutoRestartDelay(uint32_t delayMs) { _autoRestartDelayMs = delayMs; }
+    uint32_t getAutoRestartDelay() const { return _autoRestartDelayMs; }
+    
+    /// Get connection health status
+    bool isConnectionHealthy() const;
+    uint32_t getTimeSinceLastMessage() const;
+    uint64_t getRestartCount() const { return _restartCount; }
+
 private:
     void _receiveThreadFunc();
     void _processReceivedData(const uint8_t *data, size_t length, const std::string &senderAddress, uint16_t senderPort);
@@ -93,6 +120,11 @@ private:
     void _detectMavlinkVersion(const mavlink_message_t &message);
     void _updateMessageLossStats(const mavlink_message_t &message);
     void _sendHeartbeatFunc();
+    
+    // Connection health monitoring
+    void _healthCheckThreadFunc();
+    void _restartConnection();
+    void _updateLastMessageTime();
 
     // Network socket
     int _socketFd;
@@ -108,6 +140,7 @@ private:
 
     // Threading
     std::thread _receiveThread;
+    std::thread _healthCheckThread;
     std::atomic<bool> _running{false};
     std::mutex _socketMutex;
 
@@ -140,6 +173,15 @@ private:
     std::thread _heartbeatThread;
     std::atomic<bool> _sendHeartbeatFlag{false};
     static constexpr uint32_t HEARTBEAT_INTERVAL_MS = 1000; // 1 second
+
+    // Connection health monitoring
+    std::atomic<bool> _healthCheckEnabled{false};
+    std::atomic<bool> _autoRestartEnabled{false};
+    std::atomic<uint32_t> _connectionTimeoutMs{0}; // Configurable by caller
+    std::atomic<uint32_t> _autoRestartDelayMs{0};  // Configurable by caller
+    std::atomic<uint64_t> _restartCount{0};
+    std::atomic<std::chrono::steady_clock::time_point> _lastMessageTime{std::chrono::steady_clock::now()};
+    std::atomic<bool> _restartInProgress{false};
 
     // System and component IDs
     uint8_t _systemId = 255;

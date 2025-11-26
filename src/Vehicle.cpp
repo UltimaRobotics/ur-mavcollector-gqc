@@ -9,9 +9,21 @@
 #include "VehicleTemperatureFactGroup.h"
 #include "VehicleEstimatorStatusFactGroup.h"
 #include "VehicleWindFactGroup.h"
-#include "ParameterManager.h"
 #include <iostream>
+#include <sstream>
 #include <iomanip>
+#include "ParameterManager.h"
+
+// MAVLink headers for version information
+#include "../thirdparty/c_library_v1/standard/mavlink_msg_autopilot_version.h"
+#include "../thirdparty/c_library_v1/common/mavlink.h"
+
+// Board identification
+#include "BoardIdentifier.h"
+
+// MAVLink constants
+#define MAVLINK_MSG_ID_AUTOPILOT_VERSION 148
+#define MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES 520
 
 Vehicle::Vehicle(MAVLinkUdpConnection* connection)
     : FactGroup(100) // Update every 100ms
@@ -157,9 +169,29 @@ std::string Vehicle::systemStatusString() const
 
 void Vehicle::handleMessage(const mavlink_message_t &message)
 {
+    static uint32_t totalMessages = 0;
+    static std::map<uint32_t, uint32_t> messageCounts;
+    
+    totalMessages++;
+    messageCounts[message.msgid]++;
+    
+    // Debug: Log message statistics every 500 messages
+    if (totalMessages % 500 == 0) {
+        std::cout << "[DEBUG] Vehicle: Processed " << totalMessages 
+                  << " total messages. Message counts:" << std::endl;
+        for (const auto& pair : messageCounts) {
+            std::cout << "  MSGID " << pair.first << ": " << pair.second << " messages" << std::endl;
+        }
+        std::cout << "Current msgid: " << (int)message.msgid << std::endl;
+    }
+    
     switch (message.msgid) {
         case MAVLINK_MSG_ID_HEARTBEAT:
             _handleHeartbeat(message);
+            break;
+            
+        case MAVLINK_MSG_ID_AUTOPILOT_VERSION:
+            _handleAutopilotVersion(message);
             break;
             
         case MAVLINK_MSG_ID_STATUSTEXT:
@@ -274,6 +306,11 @@ void Vehicle::_handleHeartbeat(const mavlink_message_t &message)
     if (firstHeartbeat && _parameterManager) {
         std::cout << "First heartbeat received, requesting parameters..." << std::endl;
         _parameterManager->refreshAllParameters();
+        
+        // Request autopilot version information
+        std::cout << "Requesting autopilot version information..." << std::endl;
+        _requestAutopilotVersion();
+        
         firstHeartbeat = false;
     }
     
@@ -339,6 +376,162 @@ void Vehicle::_handleCommandAck(const mavlink_message_t &message)
     
     // Handle command acknowledgment
     // This could be expanded to track pending commands
+}
+
+void Vehicle::_handleAutopilotVersion(const mavlink_message_t &message)
+{
+    mavlink_autopilot_version_t version;
+    mavlink_msg_autopilot_version_decode(&message, &version);
+    
+    std::cout << "\n=== Received AUTOPILOT_VERSION Message ===" << std::endl;
+    std::cout << "Board Identification: " << BoardIdentifier::instance().identifyBoard(version.vendor_id, version.product_id) << std::endl;
+    std::cout << "Board Class: " << BoardIdentifier::instance().getBoardClass(version.vendor_id, version.product_id) << std::endl;
+    std::cout << "Board Name: " << BoardIdentifier::instance().getBoardName(version.vendor_id, version.product_id) << std::endl;
+    std::cout << "Vendor ID: " << version.vendor_id << std::endl;
+    std::cout << "Product ID: " << version.product_id << std::endl;
+    std::cout << "UID (Serial): " << version.uid << std::endl;
+    std::cout << "Board Version: " << version.board_version << std::endl;
+    std::cout << "Flight SW Version: " << flightSwVersionString() << " (raw: " << version.flight_sw_version << ")" << std::endl;
+    std::cout << "Middleware SW Version: " << middlewareSwVersionString() << " (raw: " << version.middleware_sw_version << ")" << std::endl;
+    std::cout << "OS SW Version: " << osSwVersionString() << " (raw: " << version.os_sw_version << ")" << std::endl;
+    std::cout << "Flight Custom Version (Git Hash): " << flightCustomVersionString() << std::endl;
+    std::cout << "Capabilities: " << capabilitiesString() << std::endl;
+    std::cout << "===============================================\n" << std::endl;
+    
+    // Store version information
+    _capabilities = version.capabilities;
+    _uid = version.uid;
+    _flightSwVersion = version.flight_sw_version;
+    _middlewareSwVersion = version.middleware_sw_version;
+    _osSwVersion = version.os_sw_version;
+    _boardVersion = version.board_version;
+    _vendorId = version.vendor_id;
+    _productId = version.product_id;
+    
+    // Copy custom version bytes
+    for (int i = 0; i < 8; i++) {
+        _flightCustomVersion[i] = version.flight_custom_version[i];
+    }
+    
+    _notifyVehicleChanged();
+}
+
+void Vehicle::_requestAutopilotVersion()
+{
+    // Send MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES command to request AUTOPILOT_VERSION message
+    bool success = sendCommand(MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES, 1, 1.0f);
+    
+    if (success) {
+        std::cout << "Sent AUTOPILOT_VERSION request command" << std::endl;
+    } else {
+        std::cout << "Failed to send AUTOPILOT_VERSION request command" << std::endl;
+    }
+}
+
+std::string Vehicle::flightCustomVersionString() const
+{
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    for (int i = 0; i < 8; i++) {
+        ss << std::setw(2) << static_cast<unsigned int>(_flightCustomVersion[i]);
+    }
+    return ss.str();
+}
+
+std::string Vehicle::flightSwVersionString() const
+{
+    // Format flight_sw_version as: major.minor.patch.type
+    // According to MAVLink spec: (major) (minor) (patch) (FIRMWARE_VERSION_TYPE)
+    uint8_t major = (_flightSwVersion >> 24) & 0xFF;
+    uint8_t minor = (_flightSwVersion >> 16) & 0xFF;
+    uint8_t patch = (_flightSwVersion >> 8) & 0xFF;
+    uint8_t type = _flightSwVersion & 0xFF;
+    
+    std::stringstream ss;
+    ss << static_cast<int>(major) << "." 
+       << static_cast<int>(minor) << "." 
+       << static_cast<int>(patch);
+    
+    // Add firmware type description
+    switch (type) {
+        case 0: ss << " (dev)"; break;
+        case 1: ss << " (alpha)"; break;
+        case 2: ss << " (beta)"; break;
+        case 3: ss << " (rc)"; break;
+        case 4: ss << " (release)"; break;
+        default: ss << " (type:" << static_cast<int>(type) << ")"; break;
+    }
+    
+    return ss.str();
+}
+
+std::string Vehicle::middlewareSwVersionString() const
+{
+    uint8_t major = (_middlewareSwVersion >> 24) & 0xFF;
+    uint8_t minor = (_middlewareSwVersion >> 16) & 0xFF;
+    uint8_t patch = (_middlewareSwVersion >> 8) & 0xFF;
+    
+    std::stringstream ss;
+    ss << static_cast<int>(major) << "." 
+       << static_cast<int>(minor) << "." 
+       << static_cast<int>(patch);
+    
+    return ss.str();
+}
+
+std::string Vehicle::osSwVersionString() const
+{
+    uint8_t major = (_osSwVersion >> 24) & 0xFF;
+    uint8_t minor = (_osSwVersion >> 16) & 0xFF;
+    uint8_t patch = (_osSwVersion >> 8) & 0xFF;
+    
+    std::stringstream ss;
+    ss << static_cast<int>(major) << "." 
+       << static_cast<int>(minor) << "." 
+       << static_cast<int>(patch);
+    
+    return ss.str();
+}
+
+std::string Vehicle::capabilitiesString() const
+{
+    std::stringstream ss;
+    ss << "0x" << std::hex << _capabilities << " (";
+    
+    bool first = true;
+    if (_capabilities & (1ULL << 0)) { ss << (first ? "" : ", ") << "MAV_PROTOCOL_CAPABILITY_MISSION_FLOAT"; first = false; }
+    if (_capabilities & (1ULL << 1)) { ss << (first ? "" : ", ") << "MAV_PROTOCOL_CAPABILITY_PARAM_FLOAT"; first = false; }
+    if (_capabilities & (1ULL << 2)) { ss << (first ? "" : ", ") << "MAV_PROTOCOL_CAPABILITY_MISSION_INT"; first = false; }
+    if (_capabilities & (1ULL << 3)) { ss << (first ? "" : ", ") << "MAV_PROTOCOL_CAPABILITY_COMMAND_INT"; first = false; }
+    if (_capabilities & (1ULL << 4)) { ss << (first ? "" : ", ") << "MAV_PROTOCOL_CAPABILITY_PARAM_UNION"; first = false; }
+    if (_capabilities & (1ULL << 5)) { ss << (first ? "" : ", ") << "MAV_PROTOCOL_CAPABILITY_FTP"; first = false; }
+    if (_capabilities & (1ULL << 6)) { ss << (first ? "" : ", ") << "MAV_PROTOCOL_CAPABILITY_SET_ATTITUDE_TARGET"; first = false; }
+    if (_capabilities & (1ULL << 7)) { ss << (first ? "" : ", ") << "MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_LOCAL_NED"; first = false; }
+    if (_capabilities & (1ULL << 8)) { ss << (first ? "" : ", ") << "MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_GLOBAL_INT"; first = false; }
+    if (_capabilities & (1ULL << 9)) { ss << (first ? "" : ", ") << "MAV_PROTOCOL_CAPABILITY_TERRAIN"; first = false; }
+    if (_capabilities & (1ULL << 10)) { ss << (first ? "" : ", ") << "MAV_PROTOCOL_CAPABILITY_SET_ACTUATOR_TARGET"; first = false; }
+    if (_capabilities & (1ULL << 11)) { ss << (first ? "" : ", ") << "MAV_PROTOCOL_CAPABILITY_FLIGHT_TERMINATION"; first = false; }
+    if (_capabilities & (1ULL << 12)) { ss << (first ? "" : ", ") << "MAV_PROTOCOL_CAPABILITY_COMPASS_CALIBRATION"; first = false; }
+    
+    if (first) ss << "unknown";
+    ss << ")";
+    
+    return ss.str();
+}
+
+std::string Vehicle::boardName() const
+{
+    return BoardIdentifier::instance().getBoardName(_vendorId, _productId);
+}
+
+std::string Vehicle::boardClass() const
+{
+    return BoardIdentifier::instance().getBoardClass(_vendorId, _productId);
+}
+
+std::string Vehicle::boardIdentification() const
+{
+    return BoardIdentifier::instance().identifyBoard(_vendorId, _productId);
 }
 
 void Vehicle::_notifyVehicleChanged()

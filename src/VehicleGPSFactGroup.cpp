@@ -2,11 +2,11 @@
 #include "Vehicle.h"
 
 // Include specific MAVLink GPS headers (use v1 to match existing codebase)
-#include "../thirdparty/c_library_v1/common/mavlink_msg_gps_raw_int.h"
-#include "../thirdparty/c_library_v1/common/mavlink_msg_gps2_raw.h"
-#include "../thirdparty/c_library_v1/standard/mavlink_msg_global_position_int.h"
-#include "../thirdparty/c_library_v1/common/mavlink_msg_high_latency2.h"
-#include "../thirdparty/c_library_v1/common/mavlink_msg_gps_status.h"
+#include "../thirdparty/c_library_v2/common/mavlink_msg_gps_raw_int.h"
+#include "../thirdparty/c_library_v2/common/mavlink_msg_gps2_raw.h"
+#include "../thirdparty/c_library_v2/standard/mavlink_msg_global_position_int.h"
+#include "../thirdparty/c_library_v2/common/mavlink_msg_high_latency2.h"
+#include "../thirdparty/c_library_v2/common/mavlink_msg_gps_status.h"
 
 #include <iostream>     // For debug output logging (std::cout)
 #include <memory>      // For std::shared_ptr used in fact creation

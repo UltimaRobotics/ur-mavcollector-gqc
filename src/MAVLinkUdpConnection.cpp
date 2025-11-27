@@ -15,8 +15,7 @@
 
 MAVLinkUdpConnection::MAVLinkUdpConnection()
     : _socketFd(-1)
-    , _targetPort(0)
-    , _localPort(0)
+    , _port(0)
 {
     // Initialize MAVLink status
     memset(_mavlinkStatus, 0, sizeof(_mavlinkStatus));
@@ -35,7 +34,7 @@ MAVLinkUdpConnection::~MAVLinkUdpConnection()
     disconnect();
 }
 
-bool MAVLinkUdpConnection::connect(const std::string &targetAddress, uint16_t targetPort, uint16_t localPort)
+bool MAVLinkUdpConnection::connect(const std::string &targetAddress, uint16_t port)
 {
     std::lock_guard<std::mutex> lock(_socketMutex);
     
@@ -44,8 +43,7 @@ bool MAVLinkUdpConnection::connect(const std::string &targetAddress, uint16_t ta
     }
     
     _targetAddress = targetAddress;
-    _targetPort = targetPort;
-    _localPort = localPort;
+    _port = port;
     
     // Create UDP socket
     _socketFd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -70,10 +68,10 @@ bool MAVLinkUdpConnection::connect(const std::string &targetAddress, uint16_t ta
     memset(&localAddr, 0, sizeof(localAddr));
     localAddr.sin_family = AF_INET;
     localAddr.sin_addr.s_addr = INADDR_ANY; // Listen on all interfaces
-    localAddr.sin_port = htons(_localPort);
+    localAddr.sin_port = htons(_port);
     
     if (bind(_socketFd, (struct sockaddr*)&localAddr, sizeof(localAddr)) < 0) {
-        std::cerr << "Failed to bind to local port " << _localPort << ": " << strerror(errno) << std::endl;
+        std::cerr << "Failed to bind to port " << _port << ": " << strerror(errno) << std::endl;
         close(_socketFd);
         _socketFd = -1;
         return false;
@@ -277,8 +275,8 @@ bool MAVLinkUdpConnection::_parseMavlinkData(const uint8_t *data, size_t length)
 void MAVLinkUdpConnection::_detectMavlinkVersion(const mavlink_message_t &message)
 {
     // Simple version detection based on message magic field
-    // MAVLink v1.0 uses STX (0xFE), v2.0 uses STX_V2 (0xFD)
-    if (message.magic == MAVLINK_STX) {
+    // MAVLink v1.0 uses STX (0xFE), v2.0 uses STX (0xFD)
+    if (message.magic == 0xFE) {
         _detectedMavlinkVersion = 1;
     } else {
         _detectedMavlinkVersion = 2;
@@ -400,8 +398,7 @@ void MAVLinkUdpConnection::_restartConnection()
     }
     
     std::string targetAddress = _targetAddress;
-    uint16_t targetPort = _targetPort;
-    uint16_t localPort = _localPort;
+    uint16_t port = _port;
     
     // Disconnect current connection
     std::cout << "[RESTART] Disconnecting current connection..." << std::endl;
@@ -440,10 +437,9 @@ void MAVLinkUdpConnection::_restartConnection()
     std::this_thread::sleep_for(std::chrono::milliseconds(_autoRestartDelayMs.load()));
     
     // Reconnect
-    std::cout << "[RESTART] Reconnecting to " << targetAddress << ":" << targetPort 
-              << " (local port: " << localPort << ")..." << std::endl;
+    std::cout << "[RESTART] Reconnecting to " << targetAddress << ":" << port << "..." << std::endl;
     
-    if (connect(targetAddress, targetPort, localPort)) {
+    if (connect(targetAddress, port)) {
         _restartCount++;
         std::cout << "[RESTART] Connection restarted successfully (restart #" 
                   << _restartCount.load() << ")" << std::endl;

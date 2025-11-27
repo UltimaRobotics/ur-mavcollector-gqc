@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/g++
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/home/fyou/Videos/ur-mavcollector-gqc/include -I/home/fyou/Videos/ur-mavcollector-gqc/thirdparty/c_library_v1 -I/home/fyou/Videos/ur-mavcollector-gqc/thirdparty/c_library_v2 -I/home/fyou/Videos/ur-mavcollector-gqc/thirdparty
+CXX_INCLUDES = -I/home/fyousfi/Pictures/ur-mavcollector-gqc/include -I/home/fyousfi/Pictures/ur-mavcollector-gqc/thirdparty/c_library_v1 -I/home/fyousfi/Pictures/ur-mavcollector-gqc/thirdparty/c_library_v2 -I/home/fyousfi/Pictures/ur-mavcollector-gqc/thirdparty
 
 CXX_FLAGS = -Wall -Wextra -Wpedantic -O2 -std=c++20
 

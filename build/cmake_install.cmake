@@ -1,4 +1,4 @@
-# Install script for directory: /home/fyou/Videos/ur-mavcollector-gqc
+# Install script for directory: /home/fyousfi/Pictures/ur-mavcollector-gqc
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -49,7 +49,7 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
          FILE "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/bin/MAVLinkDataCollector"
          RPATH "")
   endif()
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/bin" TYPE EXECUTABLE FILES "/home/fyou/Videos/ur-mavcollector-gqc/build/MAVLinkDataCollector")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/bin" TYPE EXECUTABLE FILES "/home/fyousfi/Pictures/ur-mavcollector-gqc/build/MAVLinkDataCollector")
   if(EXISTS "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/bin/MAVLinkDataCollector" AND
      NOT IS_SYMLINK "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/bin/MAVLinkDataCollector")
     if(CMAKE_INSTALL_DO_STRIP)
@@ -66,5 +66,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/fyou/Videos/ur-mavcollector-gqc/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/fyousfi/Pictures/ur-mavcollector-gqc/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

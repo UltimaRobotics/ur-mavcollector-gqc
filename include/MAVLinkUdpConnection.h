@@ -14,7 +14,7 @@
 #include <arpa/inet.h>
 
 // MAVLink headers
-#include "../thirdparty/c_library_v1/common/mavlink.h"
+#include "../thirdparty/c_library_v2/common/mavlink.h"
 
 // Forward declarations
 class Vehicle;
@@ -30,10 +30,9 @@ public:
 
     /// Connect to a UDP endpoint
     /// @param targetAddress IP address to connect to
-    /// @param targetPort Port to connect to
-    /// @param localPort Local port to bind to (0 for automatic)
+    /// @param port Port to use for both target and local communication
     /// @return true if connection successful
-    bool connect(const std::string &targetAddress, uint16_t targetPort, uint16_t localPort = 0);
+    bool connect(const std::string &targetAddress, uint16_t port);
 
     /// Disconnect from the current endpoint
     void disconnect();
@@ -53,12 +52,9 @@ public:
     /// @return true if sent successfully
     bool sendMessage(const mavlink_message_t &message, uint8_t systemId, uint8_t componentId);
 
-    /// Get local port
-    uint16_t localPort() const { return _localPort; }
-
     /// Get remote address and port
     std::string remoteAddress() const { return _targetAddress; }
-    uint16_t remotePort() const { return _targetPort; }
+    uint16_t port() const { return _port; }
 
     /// Set vehicle for message handling
     void setVehicle(Vehicle *vehicle) { _vehicle = vehicle; }
@@ -129,8 +125,7 @@ private:
     // Network socket
     int _socketFd;
     std::string _targetAddress;
-    uint16_t _targetPort;
-    uint16_t _localPort;
+    uint16_t _port;
     std::atomic<bool> _connected{false};
     
     // Sender address tracking (for responses)

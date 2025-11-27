@@ -190,6 +190,7 @@ private:
     void _handleCommandAck(const mavlink_message_t &message);
     void _handleAutopilotVersion(const mavlink_message_t &message);
     void _requestAutopilotVersion();
+    void _requestTelemetryStreams();
     void _notifyVehicleChanged();
 
     // Vehicle identification

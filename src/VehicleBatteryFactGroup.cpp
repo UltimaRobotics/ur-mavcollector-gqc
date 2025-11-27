@@ -4,8 +4,8 @@
 #include "FactGroup.h"
 
 // Include only the specific MAVLink headers needed to avoid conflicts
-#include "../thirdparty/c_library_v1/common/mavlink.h"
-#include "../thirdparty/c_library_v1/common/mavlink_msg_battery_status.h"
+#include "../thirdparty/c_library_v2/common/mavlink.h"
+#include "../thirdparty/c_library_v2/common/mavlink_msg_battery_status.h"
 
 #include "../thirdparty/c_library_v2/common/mavlink_msg_battery_info.h"
 #include "../thirdparty/c_library_v2/common/mavlink_msg_smart_battery_info.h"

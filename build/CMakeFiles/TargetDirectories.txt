@@ -1,7 +1,7 @@
-/home/fyou/Videos/ur-mavcollector-gqc/build/CMakeFiles/MAVLinkDataCollector.dir
-/home/fyou/Videos/ur-mavcollector-gqc/build/CMakeFiles/edit_cache.dir
-/home/fyou/Videos/ur-mavcollector-gqc/build/CMakeFiles/rebuild_cache.dir
-/home/fyou/Videos/ur-mavcollector-gqc/build/CMakeFiles/list_install_components.dir
-/home/fyou/Videos/ur-mavcollector-gqc/build/CMakeFiles/install.dir
-/home/fyou/Videos/ur-mavcollector-gqc/build/CMakeFiles/install/local.dir
-/home/fyou/Videos/ur-mavcollector-gqc/build/CMakeFiles/install/strip.dir
+/home/fyousfi/Pictures/ur-mavcollector-gqc/build/CMakeFiles/MAVLinkDataCollector.dir
+/home/fyousfi/Pictures/ur-mavcollector-gqc/build/CMakeFiles/edit_cache.dir
+/home/fyousfi/Pictures/ur-mavcollector-gqc/build/CMakeFiles/rebuild_cache.dir
+/home/fyousfi/Pictures/ur-mavcollector-gqc/build/CMakeFiles/list_install_components.dir
+/home/fyousfi/Pictures/ur-mavcollector-gqc/build/CMakeFiles/install.dir
+/home/fyousfi/Pictures/ur-mavcollector-gqc/build/CMakeFiles/install/local.dir
+/home/fyousfi/Pictures/ur-mavcollector-gqc/build/CMakeFiles/install/strip.dir

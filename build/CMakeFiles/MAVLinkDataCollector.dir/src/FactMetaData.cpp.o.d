@@ -1,7 +1,7 @@
 CMakeFiles/MAVLinkDataCollector.dir/src/FactMetaData.cpp.o: \
- /home/fyou/Videos/ur-mavcollector-gqc/src/FactMetaData.cpp \
+ /home/fyousfi/Pictures/ur-mavcollector-gqc/src/FactMetaData.cpp \
  /usr/include/stdc-predef.h \
- /home/fyou/Videos/ur-mavcollector-gqc/include/FactMetaData.h \
+ /home/fyousfi/Pictures/ur-mavcollector-gqc/include/FactMetaData.h \
  /usr/include/c++/11/string \
  /usr/include/x86_64-linux-gnu/c++/11/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/11/bits/os_defines.h \

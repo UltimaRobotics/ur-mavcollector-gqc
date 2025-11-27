@@ -1,7 +1,7 @@
 CMakeFiles/MAVLinkDataCollector.dir/src/BoardIdentifier.cpp.o: \
- /home/fyou/Videos/ur-mavcollector-gqc/src/BoardIdentifier.cpp \
+ /home/fyousfi/Pictures/ur-mavcollector-gqc/src/BoardIdentifier.cpp \
  /usr/include/stdc-predef.h \
- /home/fyou/Videos/ur-mavcollector-gqc/include/BoardIdentifier.h \
+ /home/fyousfi/Pictures/ur-mavcollector-gqc/include/BoardIdentifier.h \
  /usr/include/c++/11/string \
  /usr/include/x86_64-linux-gnu/c++/11/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/11/bits/os_defines.h \

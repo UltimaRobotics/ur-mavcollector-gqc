@@ -1,7 +1,6 @@
 {
     "target_address": "127.0.0.1",
-    "target_port": 14550,
-    "local_port": 44003,
+    "port": 44003,
     
     "system_id": 255,
     "component_id": 158,

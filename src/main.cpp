@@ -440,8 +440,7 @@ int main(int argc, char* argv[])
             std::cout << "\nJSON Configuration Format:\n";
             std::cout << "  {\n";
             std::cout << "    \"target_address\": \"127.0.0.1\",\n";
-            std::cout << "    \"target_port\": 14550,\n";
-            std::cout << "    \"local_port\": 44003,\n";
+            std::cout << "    \"port\": 14550,\n";
             std::cout << "    \"system_id\": 255,\n";
             std::cout << "    \"component_id\": 158,\n";
             std::cout << "    \"health_check_enabled\": true,\n";
@@ -468,8 +467,7 @@ int main(int argc, char* argv[])
     
     // Extract configuration values
     std::string targetAddress = config.getString("target_address", "127.0.0.1");
-    int targetPort = config.getInt("target_port", 14550);
-    int localPort = config.getInt("local_port", 44003);
+    int port = config.getInt("port", 14550);
     uint8_t systemId = static_cast<uint8_t>(config.getInt("system_id", 255));
     uint8_t componentId = static_cast<uint8_t>(config.getInt("component_id", 158));
     
@@ -497,8 +495,7 @@ int main(int argc, char* argv[])
                 std::chrono::system_clock::now().time_since_epoch()).count();
             g_dataLog << "\n=== MAVLink Data Collection Started at " << timestamp << " ===" << std::endl;
             g_dataLog << "Config File: " << configFilePath << std::endl;
-            g_dataLog << "Target: " << targetAddress << ":" << targetPort << std::endl;
-            g_dataLog << "Local Port: " << localPort << std::endl;
+            g_dataLog << "Target: " << targetAddress << ":" << port << std::endl;
             g_dataLog << "System ID: " << static_cast<int>(systemId) << std::endl;
             g_dataLog << "Component ID: " << static_cast<int>(componentId) << std::endl;
             g_dataLog << "Build: " << __DATE__ << " " << __TIME__ << std::endl;
@@ -533,8 +530,7 @@ int main(int argc, char* argv[])
     // Show configuration summary
     std::ostringstream configInfo;
     configInfo << "Configuration Summary:" << std::endl;
-    configInfo << "Target: " << targetAddress << ":" << targetPort << std::endl;
-    configInfo << "Local Port: " << localPort << std::endl;
+    configInfo << "Target: " << targetAddress << ":" << port << std::endl;
     configInfo << "System ID: " << static_cast<int>(systemId) << std::endl;
     configInfo << "Component ID: " << static_cast<int>(componentId) << std::endl;
     logMessage(configInfo.str());
@@ -594,8 +590,8 @@ int main(int argc, char* argv[])
     });
 
     // Connect to vehicle
-    if (!g_connection->connect(targetAddress, targetPort, localPort)) {
-        std::cerr << "Failed to connect to " << targetAddress << ":" << targetPort << std::endl;
+    if (!g_connection->connect(targetAddress, port)) {
+        std::cerr << "Failed to connect to " << targetAddress << ":" << port << std::endl;
         if (g_dataLog.is_open()) {
             g_dataLog << "ERROR: Failed to connect" << std::endl;
             g_dataLog.close();

@@ -12,11 +12,13 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <thread>
+#include <chrono>
 #include "ParameterManager.h"
 
 // MAVLink headers for version information
-#include "../thirdparty/c_library_v1/standard/mavlink_msg_autopilot_version.h"
-#include "../thirdparty/c_library_v1/common/mavlink.h"
+#include "../thirdparty/c_library_v2/standard/mavlink_msg_autopilot_version.h"
+#include "../thirdparty/c_library_v2/common/mavlink.h"
 
 // Board identification
 #include "BoardIdentifier.h"
@@ -175,6 +177,12 @@ void Vehicle::handleMessage(const mavlink_message_t &message)
     totalMessages++;
     messageCounts[message.msgid]++;
     
+    // Debug: Log every message type for first 100 messages
+    if (totalMessages <= 100 || totalMessages % 100 == 0) {
+        std::cout << "[DEBUG] Message #" << totalMessages << ": MSGID " << (int)message.msgid 
+                  << " from sysid=" << (int)message.sysid << " compid=" << (int)message.compid << std::endl;
+    }
+    
     // Debug: Log message statistics every 500 messages
     if (totalMessages % 500 == 0) {
         std::cout << "[DEBUG] Vehicle: Processed " << totalMessages 
@@ -311,6 +319,10 @@ void Vehicle::_handleHeartbeat(const mavlink_message_t &message)
         std::cout << "Requesting autopilot version information..." << std::endl;
         _requestAutopilotVersion();
         
+        // Request telemetry data streams
+        std::cout << "Requesting telemetry data streams..." << std::endl;
+        _requestTelemetryStreams();
+        
         firstHeartbeat = false;
     }
     
@@ -425,6 +437,48 @@ void Vehicle::_requestAutopilotVersion()
         std::cout << "Sent AUTOPILOT_VERSION request command" << std::endl;
     } else {
         std::cout << "Failed to send AUTOPILOT_VERSION request command" << std::endl;
+    }
+}
+
+void Vehicle::_requestTelemetryStreams()
+{
+    // Request key telemetry data streams at 10Hz (100ms interval)
+    // MAV_CMD_SET_MESSAGE_INTERVAL: param1 = message ID, param2 = interval (microseconds)
+    
+    struct StreamRequest {
+        uint32_t msgId;
+        const char* name;
+    };
+    
+    StreamRequest streams[] = {
+        {MAVLINK_MSG_ID_SYS_STATUS, "SYS_STATUS"},
+        {MAVLINK_MSG_ID_ATTITUDE, "ATTITUDE"},
+        {MAVLINK_MSG_ID_GLOBAL_POSITION_INT, "GLOBAL_POSITION_INT"},
+        {MAVLINK_MSG_ID_GPS_RAW_INT, "GPS_RAW_INT"},
+        {MAVLINK_MSG_ID_BATTERY_STATUS, "BATTERY_STATUS"},
+        {MAVLINK_MSG_ID_VFR_HUD, "VFR_HUD"},
+        {MAVLINK_MSG_ID_RAW_IMU, "RAW_IMU"},
+        {MAVLINK_MSG_ID_SCALED_IMU, "SCALED_IMU"},
+        {MAVLINK_MSG_ID_SCALED_PRESSURE, "SCALED_PRESSURE"},
+        {MAVLINK_MSG_ID_SERVO_OUTPUT_RAW, "SERVO_OUTPUT_RAW"}
+    };
+    
+    const int streamCount = sizeof(streams) / sizeof(streams[0]);
+    const uint32_t interval_us = 100000; // 10Hz = 100,000 microseconds
+    
+    for (int i = 0; i < streamCount; i++) {
+        bool success = sendCommand(MAV_CMD_SET_MESSAGE_INTERVAL, 0, 
+                                  static_cast<float>(streams[i].msgId), 
+                                  static_cast<float>(interval_us));
+        
+        if (success) {
+            std::cout << "Requested " << streams[i].name << " stream at 10Hz" << std::endl;
+        } else {
+            std::cout << "Failed to request " << streams[i].name << " stream" << std::endl;
+        }
+        
+        // Small delay to avoid overwhelming the vehicle
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 }
 
